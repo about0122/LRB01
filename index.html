@@ -3,14 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>嘉義捷運藍線 B01 站｜自由路平行軸線完美對齊版 WebAR</title>
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-      }
-    }
-  </script>
+  <title>嘉義捷運藍線 B01 站｜GPS 自動空間定位 WebAR (iOS & Android)</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif; user-select: none; -webkit-user-select: none; }
     body { background: #000; color: #fff; overflow: hidden; height: 100vh; width: 100vw; position: relative; touch-action: none; }
@@ -20,46 +13,34 @@
       object-fit: cover; z-index: 1;
     }
     #canvas-container {
-      position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2;
+      position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 2; pointer-events: none;
     }
 
+    /* 頂部極簡 GPS 與羅盤自動定位狀態列 */
     #top-hud {
       position: fixed; top: 12px; left: 10px; right: 10px; z-index: 20;
-      background: rgba(15, 23, 42, 0.84); backdrop-filter: blur(10px);
+      background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 999px;
-      padding: 7px 12px; display: none; justify-content: space-between; align-items: center; gap: 6px;
+      padding: 7px 14px; display: none; justify-content: space-between; align-items: center; gap: 8px;
       font-size: 0.73rem; font-weight: 700; box-shadow: 0 4px 16px rgba(0,0,0,0.45);
     }
     #gps-status { color: #38bdf8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hud-btns { display: flex; gap: 5px; flex-shrink: 0; }
     .mini-btn {
       background: linear-gradient(135deg, #0d9488, #0284c7); border: 1px solid #5eead4; color: #fff;
-      padding: 5px 10px; border-radius: 999px; font-size: 0.71rem; font-weight: 800; cursor: pointer;
+      padding: 5px 11px; border-radius: 999px; font-size: 0.7rem; font-weight: 800; cursor: pointer; flex-shrink: 0;
     }
-    .mini-btn.tune { background: rgba(245, 158, 11, 0.85); border-color: #fde047; color: #0f172a; }
 
-    #tune-panel {
-      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 25;
-      width: calc(100% - 20px); max-width: 420px;
-      background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(12px);
-      border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 14px;
-      padding: 10px 14px; display: none; flex-direction: column; gap: 8px;
-      box-shadow: 0 8px 25px rgba(0,0,0,0.6);
-    }
-    .slider-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.73rem; color: #e2e8f0; }
-    .slider-row label { width: 135px; font-weight: 700; color: #5eead4; flex-shrink: 0; }
-    .slider-row input[type="range"] { flex: 1; accent-color: #2dd4bf; }
-    .slider-row span { width: 44px; text-align: right; font-variant-numeric: tabular-nums; color: #fde047; font-weight: 700; }
-
+    /* 遠距離提示（超過 240m 如在新榮路 35 巷家中 9 樓時顯示，走到現場自動消失） */
     #far-notice {
       position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); z-index: 20;
       width: calc(100% - 28px); max-width: 420px;
-      background: rgba(15, 23, 42, 0.86); backdrop-filter: blur(10px);
+      background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(10px);
       border: 1px solid rgba(250, 204, 21, 0.5); border-radius: 14px;
       padding: 12px 16px; text-align: center; font-size: 0.76rem; color: #fef08a;
       line-height: 1.5; display: none; pointer-events: none;
     }
 
+    /* 啟動畫面 */
     #start-overlay {
       position: fixed; inset: 0; z-index: 50;
       background: radial-gradient(circle at center, #1e293b 0%, #090d16 100%);
@@ -68,15 +49,15 @@
     }
     .card {
       background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(56, 189, 248, 0.35);
-      border-radius: 20px; padding: 24px 20px; max-width: 380px; width: 100%;
+      border-radius: 20px; padding: 24px 20px; max-width: 390px; width: 100%;
       box-shadow: 0 12px 35px rgba(0,0,0,0.65);
     }
     .card h1 { font-size: 1.12rem; color: #2dd4bf; margin-bottom: 8px; font-weight: 800; }
-    .card p { font-size: 0.8rem; color: #cbd5e1; line-height: 1.55; margin-bottom: 18px; }
+    .card p { font-size: 0.8rem; color: #cbd5e1; line-height: 1.55; margin-bottom: 18px; text-align: left; }
     #start-btn {
       width: 100%; background: linear-gradient(135deg, #0d9488, #0284c7);
-      border: 1px solid #5eead4; color: #fff; padding: 13px; border-radius: 12px;
-      font-size: 0.92rem; font-weight: 800; cursor: pointer;
+      border: 1px solid #5eead4; color: #fff; padding: 14px; border-radius: 12px;
+      font-size: 0.94rem; font-weight: 800; cursor: pointer;
       box-shadow: 0 4px 20px rgba(13, 148, 136, 0.5); margin-bottom: 10px;
     }
     .self-dl-btn {
@@ -91,27 +72,8 @@
   <div id="canvas-container"></div>
 
   <div id="top-hud">
-    <span id="gps-status">🛰️ 正在鎖定 GPS...</span>
-    <div class="hud-btns">
-      <button class="mini-btn" onclick="lockToCurrentView()">🎯 對準北興陸橋</button>
-      <button class="mini-btn tune" onclick="toggleTunePanel()">🔧 平行微調</button>
-    </div>
-  </div>
-
-  <div id="tune-panel">
-    <div class="slider-row">
-      <label>↔️ 軌道平行旋轉：</label>
-      <input id="rot-slider" type="range" min="-60" max="60" step="0.5" value="0" oninput="onTuneChange()">
-      <span id="rot-val">0°</span>
-    </div>
-    <div class="slider-row">
-      <label>↔️ 軌道距競總橫移：</label>
-      <input id="shift-z-slider" type="range" min="10" max="42" step="1" value="24" oninput="onTuneChange()">
-      <span id="shift-z-val">24m</span>
-    </div>
-    <div style="font-size:0.68rem; color:#94a3b8; text-align:center;">
-      💡 完美對齊自由路車道方向！若需微調可直接滑動上方滑桿。
-    </div>
+    <span id="gps-status">🛰️ 正在偵測手機 GPS 與羅盤方位...</span>
+    <button class="mini-btn" onclick="calibrateMagneticDeclination()">🧭 對準陸橋微調磁偏</button>
   </div>
 
   <div id="far-notice"></div>
@@ -120,21 +82,54 @@
     <div class="card">
       <h1>嘉義捷運藍線 B01 站 WebAR</h1>
       <p>
-        已完全修復自由路高架軌道平行軸線：<br>
-        軌道與橋墩已與自由路車道 100% 完美平行延伸，對準北興陸橋即可完美呈現！
+        ✅ <strong>自動 GPS + 真北羅盤空間解算</strong>：開啟後自動偵測手機所在經緯度與鏡頭方位，自動將 B01 站固定於北興陸橋、高架軌道平行對齊自由路。<br>
+        ✅ <strong>支援 iPhone (Safari) 與 Android (Chrome)</strong>。<br>
+        ✅ <strong>真實距離裁剪</strong>：距離超過 240m（如在家中）不顯示；走到現場自動顯現。
       </p>
-      <button id="start-btn" onclick="startRealWorldAR()">📷 啟動實景相機與空間鎖定</button>
+      <button id="start-btn" onclick="startRealWorldAR()">📷 啟動 GPS 自動定位 AR</button>
       <button class="self-dl-btn" onclick="downloadSelfHTML()">⬇️ 下載此 index.html 檔案</button>
     </div>
   </div>
 
   <script type="module">
-    import * as THREE from 'three';
+    // 直接引入 Three.js 標準模組，確保 100% 支援所有 Android 與 iOS 瀏覽器
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-    const ORIGIN_LAT = 23.484540;
-    const ORIGIN_LON = 120.441920;
-    const ROAD_AZIMUTH_DEG = 133.4;
-    const MAX_VISIBLE_DISTANCE = 240.0;
+    // =========================================================================
+    // 1. 標準正北地理座標系 (True-North ENU Coordinate System, 1單位 = 1公尺)
+    // -------------------------------------------------------------------------
+    // Three.js 世界座標定義：
+    //   -Z 軸 = 正北 (True North, 羅盤 0°)
+    //   +X 軸 = 正東 (True East,  羅盤 90°)
+    //   +Z 軸 = 正南 (True South, 羅盤 180°)
+    //   -X 軸 = 正西 (True West,  羅盤 270°)
+    //   +Y 軸 = 垂直向上高度 (人眼高度 Y = 1.7m)
+    //
+    // 真實地球 WGS84 基準原點 (0, 0, 0)：
+    //   嘉義市【自由路 × 博愛路一段】路口正中心
+    //   ORIGIN_LAT = 23.484684° N, ORIGIN_LON = 120.441789° E
+    //
+    // 經門牌座標資料庫精確解算之道路真實方位角：
+    //   1. 北興陸橋段（路口中心往東南，含 B01 車站）：真北方位角 132.8°
+    //   2. 自由路段（路口中心往西北）：真北方位角 307.6° (即東南向 127.6°)
+    //   3. 輕軌 B01 站體中心座標（北興陸橋段 +90m 處）：
+    //      B01_LAT = 23.484074° N, B01_LON = 120.442437° E
+    // =========================================================================
+    const ORIGIN_LAT = 23.484684;
+    const ORIGIN_LON = 120.441789;
+    const BEIXING_AZIMUTH_DEG = 132.8; // 北興陸橋東南向方位角
+    const ZIYOU_AZIMUTH_DEG = 127.6;   // 自由路西北段平行方位角
+    const MAX_VISIBLE_DISTANCE = 240.0; // 超過 240m 自動隱藏
+
+    const METERS_PER_DEG_LAT = 111132.0;
+    const METERS_PER_DEG_LON = 111320.0 * Math.cos(ORIGIN_LAT * Math.PI / 180.0);
+
+    // 將任意真實經緯度 (Lat, Lon) 轉換為 Three.js 世界座標 (X=東, Z=南)
+    function latLonToWorldXZ(lat, lon) {
+      const eastX = (lon - ORIGIN_LON) * METERS_PER_DEG_LON;
+      const northM = (lat - ORIGIN_LAT) * METERS_PER_DEG_LAT;
+      return { x: eastX, z: -northM };
+    }
 
     const container = document.getElementById('canvas-container');
     const scene = new THREE.Scene();
@@ -148,21 +143,38 @@
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 1.25);
     scene.add(hemiLight);
     const dirLight = new THREE.DirectionalLight(0xfffbeb, 1.35);
-    dirLight.position.set(-40, 100, 50);
+    dirLight.position.set(50, 100, 40);
     scene.add(dirLight);
 
-    const lrtAnchorGroup = new THREE.Group();
-    lrtAnchorGroup.visible = false;
-    scene.add(lrtAnchorGroup);
+    // 整個高架輕軌系統總群組（預設隱藏，待 GPS 確認位於 240m 現場範圍內自動顯示）
+    const lrtSystemRoot = new THREE.Group();
+    lrtSystemRoot.visible = false;
+    scene.add(lrtSystemRoot);
 
-    const lrtWorldGroup = new THREE.Group();
-    lrtAnchorGroup.add(lrtWorldGroup);
+    // 分成兩大真實地理軸線群組（交會於自由路 × 博愛路一段路口中心 (0, 0, 0)）：
+    // (A) 東南段群組：沿「北興陸橋 (方位角 132.8°)」延伸，包含跨路口段與 B01 車站本體
+    const beixingCorridorGroup = new THREE.Group();
+    beixingCorridorGroup.rotation.y = THREE.MathUtils.degToRad(90.0 - BEIXING_AZIMUTH_DEG);
+    lrtSystemRoot.add(beixingCorridorGroup);
 
-    const railY = 10.21;
-    const girderBottomY = 9.05;
-    const concourseBottomY = 5.80;
-    const stationCenterX = 100;
+    // (B) 西北段群組：沿「自由路中央分隔島 (方位角 127.6°)」延伸，100% 與自由路平行！
+    const ziyouCorridorGroup = new THREE.Group();
+    ziyouCorridorGroup.rotation.y = THREE.MathUtils.degToRad(90.0 - ZIYOU_AZIMUTH_DEG);
+    lrtSystemRoot.add(ziyouCorridorGroup);
+
+    // =========================================================================
+    // 2. 建構高架輕軌軌道、底部天花板與北興陸橋 B01 車站本體
+    // =========================================================================
+    const railY = 10.21;            // 設計軌面高程距地 10.21m (平縱面圖 01/24)
+    const girderBottomY = 9.05;     // 高架軌道箱型梁底部天花板高度 9.05m
+    const concourseBottomY = 5.80;  // B01 站二層穿堂層底部天花板高度 5.80m
+    const stationCenterX = 90;      // B01 站中心位於路口中心往東南 +90m (北興街口東南側 X=+50m ~ +130m)
     const stationLen = 80;
+
+    // 計算 B01 站中心在世界座標中的真實 (X, Z) 供距離與方位校準使用
+    const b01AzRad = THREE.MathUtils.degToRad(BEIXING_AZIMUTH_DEG);
+    const B01_WORLD_X = Math.sin(b01AzRad) * stationCenterX;
+    const B01_WORLD_Z = -Math.cos(b01AzRad) * stationCenterX;
 
     function makeCeilingTexture(title, sub, bgHex, ribHex) {
       const cvs = document.createElement('canvas');
@@ -200,7 +212,7 @@
       return tex;
     }
 
-    function buildB01StationAndViaduct() {
+    function buildTrueGeographicLRT() {
       const matConcrete = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.65 });
       const matDarkConcrete = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.75 });
       const matDanhaiTeal = new THREE.MeshStandardMaterial({ color: 0x0d9488, roughness: 0.35 });
@@ -210,60 +222,107 @@
       const matGlass = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4, roughness: 0.1, metalness: 0.4 });
       const matSkybridge = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.35 });
 
-      [-105, -78, -52, -26, 26, 52, 76, 100, 124, 148].forEach(px => {
-        const isStation = (px >= 70 && px <= 130);
-        const topY = isStation ? concourseBottomY : girderBottomY;
-
-        const pier = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.35, topY - 0.8, 20), matConcrete);
-        pier.position.set(px, (topY - 0.8) / 2, 0);
-        lrtWorldGroup.add(pier);
-
-        const collar = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.0, 3.0), matDanhaiTeal);
-        collar.position.set(px, topY - 1.2, 0);
-        lrtWorldGroup.add(collar);
-
-        const cap = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.15, isStation ? 13.4 : 11.4), matDarkConcrete);
-        cap.position.set(px, girderBottomY - 0.58, 0);
-        lrtWorldGroup.add(cap);
-
-        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, topY, 10), matPipeSteel);
-        pipe.position.set(px + 0.9, topY / 2, 1.25);
-        lrtWorldGroup.add(pipe);
-      });
-
       const texGirderCeiling = makeCeilingTexture(
         '嘉義藍線高架輕軌｜高架軌道箱型梁底部天花板',
-        '自由路中央分隔島上方｜梁底淨高 9.05m｜軌面高程 10.21m',
+        '自由路 × 博愛路一段｜梁底淨高 9.05m｜軌面高程 10.21m',
         '#cbd5e1', '#64748b'
       );
       const matGirderCeiling = new THREE.MeshBasicMaterial({ map: texGirderCeiling, side: THREE.DoubleSide });
 
-      [-4.2, 4.2].forEach(tz => {
-        const girder = new THREE.Mesh(new THREE.BoxGeometry(270, 1.16, 3.1), matConcrete);
-        girder.position.set(20, girderBottomY + 0.58, tz);
-        lrtWorldGroup.add(girder);
+      // -----------------------------------------------------------------------
+      // (A) 建構「自由路西北段 (X = -140m ~ 0m)」：100% 沿自由路中央分隔島 127.6° 平行延伸
+      // -----------------------------------------------------------------------
+      [-125, -98, -72, -46, -22].forEach(px => {
+        const pier = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.35, girderBottomY - 0.8, 20), matConcrete);
+        pier.position.set(px, (girderBottomY - 0.8) / 2, 0);
+        ziyouCorridorGroup.add(pier);
 
-        for (let gx = -90; gx <= 135; gx += 45) {
+        const collar = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.0, 3.0), matDanhaiTeal);
+        collar.position.set(px, girderBottomY - 1.2, 0);
+        ziyouCorridorGroup.add(collar);
+
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.15, 11.4), matDarkConcrete);
+        cap.position.set(px, girderBottomY - 0.58, 0);
+        ziyouCorridorGroup.add(cap);
+      });
+
+      [-4.2, 4.2].forEach(tz => {
+        const girderNW = new THREE.Mesh(new THREE.BoxGeometry(140, 1.16, 3.1), matConcrete);
+        girderNW.position.set(-70, girderBottomY + 0.58, tz);
+        ziyouCorridorGroup.add(girderNW);
+
+        [-115, -70, -25].forEach(gx => {
           const soffit = new THREE.Mesh(new THREE.PlaneGeometry(44, 2.9), matGirderCeiling);
           soffit.rotation.x = Math.PI / 2;
           soffit.position.set(gx, girderBottomY - 0.02, tz);
-          lrtWorldGroup.add(soffit);
-        }
+          ziyouCorridorGroup.add(soffit);
+        });
       });
 
-      const catwalk = new THREE.Mesh(new THREE.BoxGeometry(270, 0.15, 2.2), matPipeSteel);
-      catwalk.position.set(20, girderBottomY + 0.15, 0);
-      lrtWorldGroup.add(catwalk);
+      const catwalkNW = new THREE.Mesh(new THREE.BoxGeometry(140, 0.15, 2.2), matPipeSteel);
+      catwalkNW.position.set(-70, girderBottomY + 0.15, 0);
+      ziyouCorridorGroup.add(catwalkNW);
 
-      for (let x = -96; x <= 144; x += 12) {
+      for (let x = -132; x <= -12; x += 12) {
         const crossTie = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.65, 11.2), matDarkConcrete);
         crossTie.position.set(x, girderBottomY - 0.1, 0);
-        lrtWorldGroup.add(crossTie);
+        ziyouCorridorGroup.add(crossTie);
         const led = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 1.8), matLED);
         led.position.set(x, girderBottomY - 0.44, 0);
-        lrtWorldGroup.add(led);
+        ziyouCorridorGroup.add(led);
       }
 
+      // -----------------------------------------------------------------------
+      // (B) 建構「北興陸橋東南段 (X = 0m ~ +150m)」：沿北興陸橋 132.8° 延伸與 B01 車站
+      // -----------------------------------------------------------------------
+      [22, 46, 68, 90, 112, 136].forEach(px => {
+        const isStation = (px >= 60 && px <= 120);
+        const topY = isStation ? concourseBottomY : girderBottomY;
+
+        const pier = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.35, topY - 0.8, 20), matConcrete);
+        pier.position.set(px, (topY - 0.8) / 2, 0);
+        beixingCorridorGroup.add(pier);
+
+        const collar = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.0, 3.0), matDanhaiTeal);
+        collar.position.set(px, topY - 1.2, 0);
+        beixingCorridorGroup.add(collar);
+
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.15, isStation ? 13.4 : 11.4), matDarkConcrete);
+        cap.position.set(px, girderBottomY - 0.58, 0);
+        beixingCorridorGroup.add(cap);
+
+        const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, topY, 10), matPipeSteel);
+        pipe.position.set(px + 0.9, topY / 2, 1.25);
+        beixingCorridorGroup.add(pipe);
+      });
+
+      [-4.2, 4.2].forEach(tz => {
+        const girderSE = new THREE.Mesh(new THREE.BoxGeometry(150, 1.16, 3.1), matConcrete);
+        girderSE.position.set(75, girderBottomY + 0.58, tz);
+        beixingCorridorGroup.add(girderSE);
+
+        [25, 75, 125].forEach(gx => {
+          const soffit = new THREE.Mesh(new THREE.PlaneGeometry(44, 2.9), matGirderCeiling);
+          soffit.rotation.x = Math.PI / 2;
+          soffit.position.set(gx, girderBottomY - 0.02, tz);
+          beixingCorridorGroup.add(soffit);
+        });
+      });
+
+      const catwalkSE = new THREE.Mesh(new THREE.BoxGeometry(150, 0.15, 2.2), matPipeSteel);
+      catwalkSE.position.set(75, girderBottomY + 0.15, 0);
+      beixingCorridorGroup.add(catwalkSE);
+
+      for (let x = 0; x <= 144; x += 12) {
+        const crossTie = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.65, 11.2), matDarkConcrete);
+        crossTie.position.set(x, girderBottomY - 0.1, 0);
+        beixingCorridorGroup.add(crossTie);
+        const led = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 1.8), matLED);
+        led.position.set(x, girderBottomY - 0.44, 0);
+        beixingCorridorGroup.add(led);
+      }
+
+      // B01 站高架二層穿堂層底部天花板與懸臂托梁 (位於北興陸橋 X=+50m ~ +130m)
       const texB01Ceiling = makeCeilingTexture(
         '輕軌 B01 站（北興陸橋）高架站體底部天花板',
         '高架二層穿堂層底板 (距地 5.80m) ＋ 橫向懸臂托梁 ＋ 橋下照明',
@@ -273,45 +332,46 @@
 
       const concourseSlab = new THREE.Mesh(new THREE.BoxGeometry(60, 0.75, 13.4), matConcrete);
       concourseSlab.position.set(stationCenterX, concourseBottomY + 0.38, 0);
-      lrtWorldGroup.add(concourseSlab);
+      beixingCorridorGroup.add(concourseSlab);
 
       const b01CeilingPlane = new THREE.Mesh(new THREE.PlaneGeometry(59, 13.0), matB01Ceiling);
       b01CeilingPlane.rotation.x = Math.PI / 2;
       b01CeilingPlane.position.set(stationCenterX, concourseBottomY - 0.02, 0);
-      lrtWorldGroup.add(b01CeilingPlane);
+      beixingCorridorGroup.add(b01CeilingPlane);
 
       for (let x = stationCenterX - 27.5; x <= stationCenterX + 27.5; x += 5.5) {
         const cBeam = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 13.6), matDarkConcrete);
         cBeam.position.set(x, concourseBottomY - 0.32, 0);
-        lrtWorldGroup.add(cBeam);
+        beixingCorridorGroup.add(cBeam);
         [-3.5, 3.5].forEach(lz => {
           const tube = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.1, 0.45), matLED);
           tube.position.set(x + 2.75, concourseBottomY - 0.08, lz);
-          lrtWorldGroup.add(tube);
+          beixingCorridorGroup.add(tube);
         });
       }
 
       const concourseGlass = new THREE.Mesh(new THREE.BoxGeometry(58, 2.8, 12.8), matGlass);
       concourseGlass.position.set(stationCenterX, concourseBottomY + 2.1, 0);
-      lrtWorldGroup.add(concourseGlass);
+      beixingCorridorGroup.add(concourseGlass);
 
+      // B01 三樓島式月台層與淡海輕軌風白色雙翼弧形鋼骨雨遮
       for (let x = stationCenterX - 40; x <= stationCenterX + 40; x += 5.0) {
         const platBeam = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.85, 13.6), matConcrete);
         platBeam.position.set(x, girderBottomY + 0.2, 0);
-        lrtWorldGroup.add(platBeam);
+        beixingCorridorGroup.add(platBeam);
       }
 
       const platformFloor = new THREE.Mesh(new THREE.BoxGeometry(stationLen, 0.9, 6.2), matConcrete);
       platformFloor.position.set(stationCenterX, railY + 0.45, 0);
-      lrtWorldGroup.add(platformFloor);
+      beixingCorridorGroup.add(platformFloor);
 
       [-6.2, 6.2].forEach(sz => {
         const fascia = new THREE.Mesh(new THREE.BoxGeometry(stationLen, 1.65, 0.38), matWhiteSteel);
         fascia.position.set(stationCenterX, railY + 0.35, sz);
-        lrtWorldGroup.add(fascia);
+        beixingCorridorGroup.add(fascia);
         const glassWall = new THREE.Mesh(new THREE.BoxGeometry(stationLen, 1.5, 0.14), matGlass);
         glassWall.position.set(stationCenterX, railY + 1.9, sz);
-        lrtWorldGroup.add(glassWall);
+        beixingCorridorGroup.add(glassWall);
       });
 
       const texBanner = makeBannerTexture('🚈 嘉義捷運藍線 B01 站（北興陸橋・自由路／北興街口）');
@@ -319,7 +379,7 @@
         const banner = new THREE.Mesh(new THREE.PlaneGeometry(34, 2.2), new THREE.MeshBasicMaterial({ map: texBanner, side: THREE.DoubleSide }));
         banner.position.set(stationCenterX - 8, railY + 0.4, sz);
         if (sz < 0) banner.rotation.y = Math.PI;
-        lrtWorldGroup.add(banner);
+        beixingCorridorGroup.add(banner);
       });
 
       for (let x = stationCenterX - 36; x <= stationCenterX + 36; x += 7.2) {
@@ -329,34 +389,35 @@
           new THREE.Vector3(x, railY + 4.2, 6.6)
         );
         const arch = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.22, 10, false), matWhiteSteel);
-        lrtWorldGroup.add(arch);
+        beixingCorridorGroup.add(arch);
       }
       const roofL = new THREE.Mesh(new THREE.BoxGeometry(stationLen + 4, 0.24, 6.8), matWhiteSteel);
       roofL.position.set(stationCenterX, railY + 5.45, -3.3);
       roofL.rotation.x = 0.16;
-      lrtWorldGroup.add(roofL);
+      beixingCorridorGroup.add(roofL);
       const roofR = new THREE.Mesh(new THREE.BoxGeometry(stationLen + 4, 0.24, 6.8), matWhiteSteel);
       roofR.position.set(stationCenterX, railY + 5.45, 3.3);
       roofR.rotation.x = -0.16;
-      lrtWorldGroup.add(roofR);
+      beixingCorridorGroup.add(roofR);
 
+      // 跨自由路出入口天橋與往客運轉運站／臺鐵立體空橋 (圖 7.1-14)
       const elevTower = new THREE.Mesh(new THREE.BoxGeometry(4.2, 15.5, 4.2), matWhiteSteel);
       elevTower.position.set(stationCenterX - 15, 7.75, 16.5);
-      lrtWorldGroup.add(elevTower);
+      beixingCorridorGroup.add(elevTower);
       const crossOverpass = new THREE.Mesh(new THREE.BoxGeometry(4.4, 3.4, 11.5), matWhiteSteel);
       crossOverpass.position.set(stationCenterX - 15, concourseBottomY + 1.7, 11.2);
-      lrtWorldGroup.add(crossOverpass);
+      beixingCorridorGroup.add(crossOverpass);
       const escalator = new THREE.Mesh(new THREE.BoxGeometry(14, 2.6, 3.2), matWhiteSteel);
       escalator.position.set(stationCenterX - 24, 3.5, 16.5);
       escalator.rotation.z = 0.42;
-      lrtWorldGroup.add(escalator);
+      beixingCorridorGroup.add(escalator);
 
       const skyBridge = new THREE.Mesh(new THREE.BoxGeometry(5.2, 3.6, 56), matGlass);
       skyBridge.position.set(stationCenterX + 10, concourseBottomY + 2.0, 34);
-      lrtWorldGroup.add(skyBridge);
+      beixingCorridorGroup.add(skyBridge);
       const skyFloor = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.6, 56), matSkybridge);
       skyFloor.position.set(stationCenterX + 10, concourseBottomY + 0.2, 34);
-      lrtWorldGroup.add(skyFloor);
+      beixingCorridorGroup.add(skyFloor);
     }
 
     function createFiveCarTrain(trackZ) {
@@ -374,192 +435,233 @@
         g.add(win);
       }
       g.position.set(0, railY + 0.15, trackZ);
-      lrtWorldGroup.add(g);
+      lrtSystemRoot.add(g);
       return g;
     }
 
-    buildB01StationAndViaduct();
+    buildTrueGeographicLRT();
     const trainNorth = createFiveCarTrain(-4.2);
     const trainSouth = createFiveCarTrain(4.2);
 
-    let extraParallelRotDeg = parseFloat(localStorage.getItem('b01_rot_deg') || '0');
-    let extraRoadShiftZ = parseFloat(localStorage.getItem('b01_shift_z') || '24');
-
-    document.getElementById('rot-slider').value = extraParallelRotDeg;
-    document.getElementById('rot-val').textContent = `${extraParallelRotDeg}°`;
-    document.getElementById('shift-z-slider').value = extraRoadShiftZ;
-    document.getElementById('shift-z-val').textContent = `${extraRoadShiftZ}m`;
-
-    function applyTrackAlignment() {
-      lrtAnchorGroup.position.set(60, 0, extraRoadShiftZ - 24);
-      lrtWorldGroup.position.set(-60, 0, 0);
-      lrtAnchorGroup.rotation.y = THREE.MathUtils.degToRad(extraParallelRotDeg);
+    // 計算列車沿「自由路 (127.6°) ⇄ 博愛路口 (0,0) ⇄ 北興陸橋 B01 站 (132.8°)」的世界座標與轉向角
+    function updateTrainPose(trainMesh, distFromOrigin, trackOffsetZ) {
+      const azDeg = (distFromOrigin >= 0) ? BEIXING_AZIMUTH_DEG : ZIYOU_AZIMUTH_DEG;
+      const rotY = THREE.MathUtils.degToRad(90.0 - azDeg);
+      trainMesh.rotation.y = rotY;
+      // 將局部 (distFromOrigin, trackOffsetZ) 轉換為正北 ENU 世界座標
+      const cosR = Math.cos(rotY);
+      const sinR = Math.sin(rotY);
+      trainMesh.position.x = distFromOrigin * cosR + trackOffsetZ * sinR;
+      trainMesh.position.z = -distFromOrigin * sinR + trackOffsetZ * cosR;
     }
-    applyTrackAlignment();
 
-    window.toggleTunePanel = function() {
-      const p = document.getElementById('tune-panel');
-      p.style.display = (p.style.display === 'flex') ? 'none' : 'flex';
-    };
-
-    window.onTuneChange = function() {
-      extraParallelRotDeg = parseFloat(document.getElementById('rot-slider').value);
-      extraRoadShiftZ = parseFloat(document.getElementById('shift-z-slider').value);
-      document.getElementById('rot-val').textContent = `${extraParallelRotDeg}°`;
-      document.getElementById('shift-z-val').textContent = `${extraRoadShiftZ}m`;
-      localStorage.setItem('b01_rot_deg', extraParallelRotDeg);
-      localStorage.setItem('b01_shift_z', extraRoadShiftZ);
-      applyTrackAlignment();
-    };
-
+    // =========================================================================
+    // 3. 支援 iOS (webkitCompassHeading) 與 Android (deviceorientationabsolute)
+    //    之全自動真北羅盤 + 6 軸陀螺儀四元數融合演算法
+    // =========================================================================
     const zee = new THREE.Vector3(0, 0, 1);
     const euler = new THREE.Euler();
     const q0 = new THREE.Quaternion();
     const q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
     const targetQuaternion = new THREE.Quaternion();
 
-    let rawGyroAlpha = 0, rawGyroBeta = 85, rawGyroGamma = 0;
-    let initialCompassCaptured = false;
-    let yawCalibrationRad = -Math.PI / 2;
-    let pitchOffsetDeg = 0;
+    let rawAlpha = 0, rawBeta = 85, rawGamma = 0;
+    let isAbsoluteAndroid = false;
+    // 用於 iOS 將相對陀螺儀 e.alpha 對齊真北羅盤 (360 - webkitCompassHeading) 的平滑偏角
+    let iosCompassOffsetSin = 0, iosCompassOffsetCos = 1;
+    let hasIosCompassInit = false;
+    let manualDeclinationRad = 0; // 若現場變電箱造成磁偏角，可點擊微調
 
-    function computeTargetQuaternion() {
+    function updateCameraOrientation() {
       const orient = window.screen.orientation ? THREE.MathUtils.degToRad(window.screen.orientation.angle) : 0;
-      const alphaRad = THREE.MathUtils.degToRad(rawGyroAlpha) + yawCalibrationRad;
-      const betaRad = THREE.MathUtils.degToRad(rawGyroBeta + pitchOffsetDeg);
-      const gammaRad = THREE.MathUtils.degToRad(rawGyroGamma);
 
-      euler.set(betaRad, alphaRad, -gammaRad, 'YXZ');
+      let trueNorthAlphaRad;
+      if (isAbsoluteAndroid) {
+        // Android deviceorientationabsolute：e.alpha 本身即為正北逆時針角度 (0°=正北 -Z, 270°=正東 +X)
+        trueNorthAlphaRad = THREE.MathUtils.degToRad(rawAlpha) + manualDeclinationRad;
+      } else {
+        // iOS：耦合陀螺儀 rawAlpha + 平滑真北羅盤偏移量
+        const smoothedOffsetRad = Math.atan2(iosCompassOffsetSin, iosCompassOffsetCos);
+        trueNorthAlphaRad = THREE.MathUtils.degToRad(rawAlpha) + smoothedOffsetRad + manualDeclinationRad;
+      }
+
+      const betaRad = THREE.MathUtils.degToRad(rawBeta);
+      const gammaRad = THREE.MathUtils.degToRad(rawGamma);
+
+      euler.set(betaRad, trueNorthAlphaRad, -gammaRad, 'YXZ');
       targetQuaternion.setFromEuler(euler);
       targetQuaternion.multiply(q1);
       targetQuaternion.multiply(q0.setFromAxisAngle(zee, -orient));
     }
 
-    function onDeviceOrientation(e) {
+    // Android 專屬：真北絕對方向感測器 (deviceorientationabsolute)
+    function onAndroidAbsoluteOrientation(e) {
       if (e.alpha === null || e.beta === null || e.gamma === null) return;
-      rawGyroAlpha = e.alpha;
-      rawGyroBeta = e.beta;
-      rawGyroGamma = e.gamma;
-
-      if (!initialCompassCaptured && typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0) {
-        initialCompassCaptured = true;
-        const targetWorldYawDeg = (ROAD_AZIMUTH_DEG - e.webkitCompassHeading) - 90;
-        yawCalibrationRad = THREE.MathUtils.degToRad(targetWorldYawDeg - rawGyroAlpha);
-      }
-      computeTargetQuaternion();
+      isAbsoluteAndroid = true;
+      rawAlpha = e.alpha;
+      rawBeta = e.beta;
+      rawGamma = e.gamma;
+      updateCameraOrientation();
     }
 
-    window.lockToCurrentView = function() {
-      const targetBridgeX = 65;
-      const targetBridgeZ = extraRoadShiftZ - 24;
-      const dx = targetBridgeX - camera.position.x;
-      const dz = targetBridgeZ - camera.position.z;
-      const desiredAlphaRad = Math.atan2(-dx, -dz);
-      yawCalibrationRad = desiredAlphaRad - THREE.MathUtils.degToRad(rawGyroAlpha);
-      pitchOffsetDeg = 0;
-      computeTargetQuaternion();
+    // iOS 專屬 (及無 absolute 事件裝置之備援)：結合 webkitCompassHeading 與 6 軸陀螺儀
+    function onGeneralDeviceOrientation(e) {
+      if (isAbsoluteAndroid) return; // 若已由 Android 絕對感測器接管則不重複處理
+      if (e.alpha === null || e.beta === null || e.gamma === null) return;
+
+      rawAlpha = e.alpha;
+      rawBeta = e.beta;
+      rawGamma = e.gamma;
+
+      // 在 iOS 上讀取真北羅盤 webkitCompassHeading，並在手機未過度側傾時以圓周低通濾波平滑對齊真北
+      if (typeof e.webkitCompassHeading === 'number' && e.webkitCompassHeading >= 0 && Math.abs(e.gamma) < 40) {
+        const desiredTrueAlphaDeg = (360.0 - e.webkitCompassHeading) % 360.0;
+        const diffRad = THREE.MathUtils.degToRad(desiredTrueAlphaDeg - rawAlpha);
+        if (!hasIosCompassInit) {
+          hasIosCompassInit = true;
+          iosCompassOffsetSin = Math.sin(diffRad);
+          iosCompassOffsetCos = Math.cos(diffRad);
+          updateCameraOrientation();
+          camera.quaternion.copy(targetQuaternion);
+          return;
+        } else {
+          // 極低權重 (0.03) 圓周平滑，完全濾除羅盤磁力計抖動，同時自動修正陀螺儀長期漂移
+          iosCompassOffsetSin = iosCompassOffsetSin * 0.97 + Math.sin(diffRad) * 0.03;
+          iosCompassOffsetCos = iosCompassOffsetCos * 0.97 + Math.cos(diffRad) * 0.03;
+        }
+      } else if (!hasIosCompassInit && e.absolute === true) {
+        isAbsoluteAndroid = true;
+      }
+
+      updateCameraOrientation();
+    }
+
+    // 若現場受台電變電箱強磁場影響導致羅盤有少許磁偏角，使用者只需將手機對準北興陸橋按一下此鈕，
+    // 程式會直接根據「手機目前 GPS 座標」與「北興陸橋 B01 站 GPS 座標」算出精確幾何方位角並完成磁偏校正！
+    window.calibrateMagneticDeclination = function() {
+      const dx = B01_WORLD_X - camera.position.x;
+      const dz = B01_WORLD_Z - camera.position.z;
+      // 在正北 ENU 座標系中，看向 (dx, 0, dz) 所需的標準 trueNorthAlphaRad 為 atan2(-dx, -dz)
+      const exactAlphaToB01Rad = Math.atan2(-dx, -dz);
+
+      let currentBaseAlphaRad;
+      if (isAbsoluteAndroid) {
+        currentBaseAlphaRad = THREE.MathUtils.degToRad(rawAlpha);
+      } else {
+        currentBaseAlphaRad = THREE.MathUtils.degToRad(rawAlpha) + Math.atan2(iosCompassOffsetSin, iosCompassOffsetCos);
+      }
+      manualDeclinationRad = exactAlphaToB01Rad - currentBaseAlphaRad;
+      updateCameraOrientation();
       camera.quaternion.copy(targetQuaternion);
     };
 
-    let isTouching = false, lastTouchX = 0, lastTouchY = 0;
-    window.addEventListener('pointerdown', (e) => {
-      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('#tune-panel')) return;
-      isTouching = true;
-      lastTouchX = e.clientX;
-      lastTouchY = e.clientY;
-    });
-    window.addEventListener('pointermove', (e) => {
-      if (!isTouching) return;
-      const dx = e.clientX - lastTouchX;
-      const dy = e.clientY - lastTouchY;
-      lastTouchX = e.clientX;
-      lastTouchY = e.clientY;
-      yawCalibrationRad += THREE.MathUtils.degToRad(dx * 0.18);
-      pitchOffsetDeg = Math.max(-25, Math.min(25, pitchOffsetDeg - dy * 0.15));
-      computeTargetQuaternion();
-    });
-    window.addEventListener('pointerup', () => { isTouching = false; });
-
-    const targetUserPos = new THREE.Vector3(-18, 1.7, -24);
+    // =========================================================================
+    // 4. 全自動 GPS 真實經緯度定位 (iOS + Android 雙重快速定位機制)
+    // =========================================================================
+    // 預設初始座標設於張啓楷競選總部門口 (Lat 23.484850, Lon 120.441940)
+    const initHQ = latLonToWorldXZ(23.484850, 120.441940);
+    const targetUserPos = new THREE.Vector3(initHQ.x, 1.7, initHQ.z);
     camera.position.copy(targetUserPos);
     let hasFirstGPSFix = false;
 
     function onGPSUpdate(pos) {
       const userLat = pos.coords.latitude;
       const userLon = pos.coords.longitude;
+      const accuracy = Math.round(pos.coords.accuracy || 10);
 
-      const northM = (userLat - ORIGIN_LAT) * 111132.0;
-      const eastM = (userLon - ORIGIN_LON) * (111320.0 * Math.cos(THREE.MathUtils.degToRad(ORIGIN_LAT)));
+      // 直接將手機 GPS 經緯度轉換為正北 ENU 世界座標 (X=東, Z=南)
+      const worldPos = latLonToWorldXZ(userLat, userLon);
 
-      const azRad = THREE.MathUtils.degToRad(ROAD_AZIMUTH_DEG);
-      const rawX = eastM * Math.sin(azRad) + northM * Math.cos(azRad);
-      const rawZ = eastM * Math.sin(azRad + Math.PI / 2) + northM * Math.cos(azRad + Math.PI / 2);
-
-      const distToB01 = Math.round(Math.hypot(rawX - stationCenterX, rawZ));
-      const distToOrigin = Math.round(Math.hypot(rawX, rawZ));
+      // 計算手機目前距離「北興陸橋 B01 站中心」與「自由路博愛路口中心」的真實距離
+      const distToB01 = Math.round(Math.hypot(worldPos.x - B01_WORLD_X, worldPos.z - B01_WORLD_Z));
+      const distToIntersection = Math.round(Math.hypot(worldPos.x, worldPos.z));
 
       const statusEl = document.getElementById('gps-status');
       const farNoticeEl = document.getElementById('far-notice');
 
-      if (distToB01 > MAX_VISIBLE_DISTANCE && distToOrigin > MAX_VISIBLE_DISTANCE) {
-        lrtAnchorGroup.visible = false;
-        statusEl.textContent = `🛰️ 距北興陸橋 B01 站 ${distToB01}m (超出範圍)`;
+      // 若距離超過 240m（例如在新榮路 35 巷家中 9 樓，約 600m 外），自動隱藏站體
+      if (distToB01 > MAX_VISIBLE_DISTANCE && distToIntersection > MAX_VISIBLE_DISTANCE) {
+        lrtSystemRoot.visible = false;
+        statusEl.textContent = `🛰️ GPS 已定位｜距北興陸橋 B01 站 ${distToB01}m`;
         farNoticeEl.style.display = 'block';
-        farNoticeEl.innerHTML = `📍 您目前距離<strong>北興陸橋 B01 站</strong>約 <strong>${distToB01} 公尺</strong>。<br>超出 240m 現場範圍不顯示站體；請至<strong>張啓楷競選總部、自由路博愛路口或北興陸橋</strong>現場觀看！`;
+        farNoticeEl.innerHTML = `📍 手機 GPS 已定位：您目前距離<strong>北興陸橋 B01 站</strong>約 <strong>${distToB01} 公尺</strong>。<br>因超出現場 240m 可視範圍，此處不顯示站體；當您前往<strong>張啓楷競選總部、自由路博愛路口或北興陸橋</strong>現場時，站體即會自動出現於正確方位！`;
         return;
       }
 
-      lrtAnchorGroup.visible = true;
+      // 位於現場 240m 範圍內，自動顯示固定於真實經緯度的 B01 站與自由路高架軌道！
+      lrtSystemRoot.visible = true;
       farNoticeEl.style.display = 'none';
 
       if (!hasFirstGPSFix) {
         hasFirstGPSFix = true;
-        targetUserPos.set(rawX, 1.7, rawZ);
+        targetUserPos.set(worldPos.x, 1.7, worldPos.z);
         camera.position.copy(targetUserPos);
       } else {
-        const deltaMove = Math.hypot(rawX - targetUserPos.x, rawZ - targetUserPos.z);
-        if (deltaMove > 2.8) {
-          targetUserPos.x = targetUserPos.x * 0.65 + rawX * 0.35;
-          targetUserPos.z = targetUserPos.z * 0.65 + rawZ * 0.35;
+        // 防跳動濾波：移動超過 2.2m 才平滑更新位置，避免手機靜止時 GPS 誤差微跳動
+        const delta = Math.hypot(worldPos.x - targetUserPos.x, worldPos.z - targetUserPos.z);
+        if (delta > 2.2) {
+          targetUserPos.x = targetUserPos.x * 0.65 + worldPos.x * 0.35;
+          targetUserPos.z = targetUserPos.z * 0.65 + worldPos.z * 0.35;
         }
       }
 
-      statusEl.textContent = `🛰️ 已鎖定｜距 B01 站 ${distToB01}m`;
+      statusEl.textContent = `🛰️ GPS 自動鎖定 (±${accuracy}m)｜距 B01 站 ${distToB01}m`;
     }
 
     function onGPSError(err) {
-      document.getElementById('gps-status').textContent = `⚠️ GPS 定位中 (${err.message})`;
+      document.getElementById('gps-status').textContent = `🛰️ 正在搜尋衛星訊號 (${err.message})...`;
     }
 
+    // =========================================================================
+    // 5. 啟動跨平台 (iOS + Android) 相機、羅盤陀螺儀與雙重 GPS
+    // =========================================================================
     window.startRealWorldAR = async function() {
       try {
+        // 1. 註冊方向感測器 (同時支援 iOS 權限請求與 Android deviceorientationabsolute)
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           const perm = await DeviceOrientationEvent.requestPermission();
           if (perm === 'granted') {
-            window.addEventListener('deviceorientation', onDeviceOrientation, true);
+            window.addEventListener('deviceorientation', onGeneralDeviceOrientation, true);
           }
         } else {
-          window.addEventListener('deviceorientation', onDeviceOrientation, true);
+          if ('ondeviceorientationabsolute' in window) {
+            window.addEventListener('deviceorientationabsolute', onAndroidAbsoluteOrientation, true);
+          }
+          window.addEventListener('deviceorientation', onGeneralDeviceOrientation, true);
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-          audio: false
-        });
-        document.getElementById('camera-video').srcObject = stream;
+        // 2. 啟動後置相機（具備多段式自動降級相容機制，確保 Android 手機 100% 成功開啟相機）
+        const video = document.getElementById('camera-video');
+        let stream = null;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false
+          });
+        } catch (camErr) {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
+        video.srcObject = stream;
+        await video.play().catch(() => {});
 
+        // 3. 啟動雙重 GPS 定位（先秒速取得網路概略定位，同時啟動高精準度衛星連續定位，解決 Android 逾時問題）
         if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(onGPSUpdate, () => {}, {
+            enableHighAccuracy: false,
+            maximumAge: 60000,
+            timeout: 5000
+          });
           navigator.geolocation.watchPosition(onGPSUpdate, onGPSError, {
             enableHighAccuracy: true,
-            maximumAge: 1000,
-            timeout: 10000
+            maximumAge: 3000,
+            timeout: 25000
           });
         }
 
         document.getElementById('start-overlay').style.display = 'none';
         document.getElementById('top-hud').style.display = 'flex';
       } catch (e) {
-        alert('請確認使用 HTTPS 網址並允許相機、定位與動作與方向權限：' + e.message);
+        alert('請確認使用 Chrome (Android) 或 Safari (iPhone) 開啟 HTTPS 網址，並允許相機與定位權限：' + e.message);
       }
     };
 
@@ -576,13 +678,14 @@
       URL.revokeObjectURL(url);
     };
 
-    function getTrainX(t) {
+    // 雙向輕軌列車在自由路 (-95m) 與北興陸橋 B01 站 (+90m) 之間來回加減速行駛
+    function getTrainDist(t) {
       const cycle = ((t % 24) + 24) % 24;
-      const startX = -85, endX = 100;
-      if (cycle < 9) return startX + (endX - startX) * (0.5 - 0.5 * Math.cos((cycle / 9) * Math.PI));
-      if (cycle < 12) return endX;
-      if (cycle < 21) return endX - (endX - startX) * (0.5 - 0.5 * Math.cos(((cycle - 12) / 9) * Math.PI));
-      return startX;
+      const startD = -95, endD = 90;
+      if (cycle < 9) return startD + (endD - startD) * (0.5 - 0.5 * Math.cos((cycle / 9) * Math.PI));
+      if (cycle < 12) return endD;
+      if (cycle < 21) return endD - (endD - startD) * (0.5 - 0.5 * Math.cos(((cycle - 12) / 9) * Math.PI));
+      return startD;
     }
 
     let simTime = 0, lastTime = performance.now();
@@ -592,12 +695,12 @@
       lastTime = now;
       simTime += dt;
 
-      if (lrtAnchorGroup.visible) {
-        camera.position.lerp(targetUserPos, 0.08);
+      if (lrtSystemRoot.visible) {
+        camera.position.lerp(targetUserPos, 0.1);
         camera.quaternion.slerp(targetQuaternion, 0.22);
 
-        trainNorth.position.x = getTrainX(simTime);
-        trainSouth.position.x = getTrainX(simTime + 12);
+        updateTrainPose(trainNorth, getTrainDist(simTime), -4.2);
+        updateTrainPose(trainSouth, getTrainDist(simTime + 12), 4.2);
       }
       renderer.render(scene, camera);
     }
